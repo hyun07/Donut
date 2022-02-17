@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.inf.community.mapper.CommunityMapper">
+
+	<resultMap type="com.inf.community.domain.CommunityVO" id="cmnMap">
+		<id property="community_seq" column="community_seq" />
+		<result property="member_id" column="member_id" />
+		<result property="course_seq" column="course_seq" />
+		<result property="community_roll" column="community_roll" />
+		<result property="commumity_status" column="commumity_status" />
+		<result property="community_title" column="community_title" />
+		<result property="community_contents" column="community_contents" />
+		<result property="community_regDT" column="community_regDT" />
+		<result property="answer_seq" column="answer_seq" />
+		<collection property="member_nickNM" column="member_id" ofType="String" select="getNickNameByid" />
+		<collection property="cmtg_list" column="community_seq"
+			javaType="java.util.ArrayList"
+			ofType="com.inf.community.domain.TagVO"
+			select="getTagListBySeq" />
+	</resultMap>
+	
+	<resultMap type="com.inf.community.domain.CommunityVO" id="answerMap">
+		<id property="answer_seq" column="answer_seq" />
+		<result property="community_seq" column="community_seq" />
+		<result property="member_id" column="member_id" />
+		<result property="course_seq" column="course_seq" />
+		<result property="community_roll" column="community_roll" />
+		<result property="commumity_status" column="commumity_status" />
+		<result property="community_title" column="community_title" />
+		<result property="community_contents" column="community_contents" />
+		<result property="community_regDT" column="community_regDT" />
+		<collection property="member_nickNM" column="member_id" ofType="String" select="getNickNameByid" />
+		<collection property="member_profile_img_nm" column="member_id" javaType="String"
+		select="getProfileImgNM" />
+	</resultMap>
+
+	<resultMap type="com.inf.community.domain.CommunityReplyVO" id="replyMap">
+		<id property="reply_seq" column="reply_seq"/>
+		<result property="community_seq" column="community_seq"/>
+		<result property="member_id" column="member_id"/>
+		<result property="reply_contents" column="reply_contents"/>
+		<result property="reply_regDT" column="reply_regDT"/>
+		<collection property="member_nickNM" column="member_id" ofType="String" select="getNickNameByReply" />
+		<collection property="member_profile_img_nm" column="member_id" javaType="String"
+		select="getProfileImgNMByReply" />
+	</resultMap>
+	
+	<select id="selectByCommSeq" resultMap="cmnMap">
+		select * from community where community_seq = #{community_seq}
+	</select>
+	
+	<select id="cmnGetStatusList" resultMap="cmnMap">
+		select * from community where community_roll=#{community_roll} and commumity_status=#{commumity_status} order by community_seq desc
+	</select>
+
+	<!-- 게시판 목록 -->
+	<select id="cmnGetList" resultMap="cmnMap">
+		select * from community where community_roll='질문답변' order by community_seq desc
+	</select>
+	
+	<!-- 답변 목록 -->
+	<select id="getAnswerList" resultMap="answerMap">
+		select * from community where answer_seq = #{answer_seq} order by community_regdt asc
+	</select>
+	
+	<!-- 댓글 목록 -->
+	<select id="getReplyList" resultMap="replyMap">
+		select r.* from community c, community_reply r where c.community_seq=r.community_seq and r.community_seq=#{community_seq} order by reply_regDT asc
+	</select>
+	
+	<!-- 태그 이름 중복 검색 -->
+	<select id="duplicateTagName" resultType="com.inf.community.domain.TagVO" parameterType="com.inf.community.domain.TagVO">
+		select * from tag where tag_nm = #{tag_NM}
+	</select>
+	
+	<!-- 태그이름으로 객체찾기 -->
+	<select id="findTagName" resultType="com.inf.community.domain.TagVO" parameterType="com.inf.community.domain.TagVO">
+		select * from tag where tag_nm = #{tag_NM}
+	</select>
+	
+	<!-- 질문답변 게시글 등록 -->
+	<insert id="insertQA" parameterType="com.inf.community.domain.CommunityVO">
+		<selectKey keyProperty="community_seq" resultType="Integer" order="BEFORE">
+			select community_seq.nextval FROM DUAL
+		</selectKey>
+		insert into community(community_seq,member_id,community_roll,commumity_status,community_title,community_contents,community_regDT)
+		VALUES(#{community_seq}, #{member_id}, '질문답변', '미해결', #{community_title},
+		#{community_contents}, sysdate)
+	</insert>
+	
+	<!-- 커뮤니티게시글과 태그 연결 테이블 생성 -->
+	<insert id="createCommTag" parameterType="com.inf.community.domain.CommunityTagVO">
+		insert into community_tag VALUES(#{tag_NO}, #{community_seq})
+	</insert>
+
+	<!-- 태그 생성 -->
+	<insert id="createTag" parameterType="String" useGeneratedKeys="true">
+		<selectKey keyProperty="tag_NO" resultType="Integer" order="BEFORE" >
+		select tag_NO.nextval from dual
+		</selectKey>
+		insert into tag VALUES(#{tag_NO}, #{tag_NM})
+	</insert>
+	
+	<!-- 답변 등록 -->
+	<insert id="insertAnswer" parameterType="com.inf.community.domain.CommunityVO">
+		<selectKey keyProperty="community_seq" resultType="Integer" order="BEFORE">
+			select community_seq.nextval FROM DUAL
+		</selectKey>
+		insert into community(community_seq,member_id,community_roll,community_title,community_contents,community_regDT,answer_seq)
+		VALUES(#{community_seq}, #{member_id}, #{community_roll}, '답변제목', #{community_contents}, sysdate, #{answer_seq})
+	</insert>
+	
+	<!-- 댓글 등록 -->
+	<insert id="insertReply" parameterType="com.inf.community.domain.CommunityReplyVO">
+		<selectKey keyProperty="reply_seq" resultType="Integer" order="BEFORE">
+			select reply_seq.nextval FROM DUAL
+		</selectKey>
+		INSERT INTO community_reply VALUES (#{reply_seq}, #{community_seq}, #{member_id}, #{reply_contents}, sysdate)
+	</insert>
+	
+	<select id="getTagListBySeq" resultType="com.inf.community.domain.TagVO">
+		select tg.* from community_tag ct, tag tg
+		where ct.tag_no=tg.tag_no
+		and ct.community_seq=#{community_seq}
+	</select>
+	
+	<select id="getProfileImgNM" resultType="String">
+		select DISTINCT m.member_profile_img_nm from community c, member m WHERE c.member_id = m.member_id
+		and m.member_id = #{member_id}
+	</select>
+
+	<select id="getNickNameByid" resultType="String">
+		select DISTINCT m.member_nicknm from community c, member m WHERE c.member_id = m.member_id
+		and m.member_id = #{member_id}
+	</select>
+	
+	<select id="getNickNameByReply" resultType="String">
+		select DISTINCT m.member_nicknm from community_reply c, member m WHERE c.member_id = m.member_id
+		and m.member_id = #{member_id}
+	</select>
+	
+	<select id="getProfileImgNMByReply" resultType="String">
+		select DISTINCT m.member_profile_img_nm from community_reply c, member m WHERE c.member_id = m.member_id
+		and m.member_id = #{member_id}
+	</select>
+	
+	<select id="getStatus" resultType="String">
+		select commumity_status from community where community_seq=#{community_seq}
+	</select>
+	
+	<update id="changeStatus">
+		update community set commumity_status=#{commumity_status} where community_seq=#{community_seq}
+	</update>
+	
+	<update id="modifyBoard">
+		update community set community_title=#{community_title}, community_contents=#{community_contents} where community_seq=#{community_seq}
+	</update>
+	
+	<delete id="deleteByCommTagVO" parameterType="java.lang.Integer">
+	{call
+	declare
+		begin
+     		delete from community_tag where community_seq=#{community_seq};
+			delete from community where community_seq=#{community_seq};
+		end
+	}
+	</delete>
+	
+	<delete id="deleteByCommVO">
+		delete from community where community_seq=#{community_seq}
+	</delete>
+	
+	<select id="findCommSeqInCommTag" resultType="Integer">
+		select count(*) from community_tag where community_seq=#{community_seq}
+	</select>
+	
+	<update id="updateAnswer" parameterType="com.inf.community.domain.CommunityVO">
+		UPDATE community set community_contents=#{community_contents} where community_seq=#{community_seq}
+	</update>
+	
+	<update id="updateReply" parameterType="com.inf.community.domain.CommunityReplyVO">
+		UPDATE community_reply set reply_contents=#{reply_contents} where reply_seq=#{reply_seq}
+	</update>
+	
+	
+
+</mapper>

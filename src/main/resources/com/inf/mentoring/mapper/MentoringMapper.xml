@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--resultMap은 select한 값을 resultMap에들어있는 column의 형태로 값을 controller로 보내는걸 
+	말한다. -->
+<!-- parameter는 controller에서 mapper로 값을 보내는걸 말한다. -->
+<mapper namespace="com.inf.mentoring.mapper.MentoringMapper">
+	<resultMap id="mentoringMap"
+		type="com.inf.mentoring.domain.MentoringVO">
+		<id property="mentoring_seq" column="mentoring_seq"></id>
+		<result property="member_id" column="member_id"></result>
+		<result property="course_seq" column="course_seq"></result>
+		<result property="kinds_seq" column="kinds_seq"></result>
+		<result property="mentoring_NM" column="mentoring_NM"></result>
+		<result property="mentoring_title" column="mentoring_title"></result>
+		<result property="mentoring_content" column="mentoring_content"></result>
+		<result property="mentoring_price" column="mentoring_price"></result>
+		<result property="mentoring_regDT" column="mentoring_regDT"></result>
+		<result property="mentoring_status" column="mentoring_status"></result>
+		<result property="mentoring_materials"
+			column="mentoring_materials"></result>
+		<result property="mentoring_comment" column="mentoring_comment"></result>
+		<collection property="member" column="member_id"
+			javaType="com.inf.member.domain.MemberVO"
+			ofType="com.inf.member.domain.MemberVO" select="getMentoListById" />
+		<collection property="kinds" column="kinds_seq"
+			javaType="com.inf.mentoring.domain.KindsVO"
+			ofType="com.inf.mentoring.domain.KindsVO" select="getKindsListById" />
+		<collection property="course" column="course_seq"
+			javaType="com.inf.course.domain.CourseVO"
+			ofType="com.inf.course.domain.CourseVO" select="getCourseListById" />
+		<collection property="k_list" column="kinds_seq"
+			javaType="java.util.ArrayList"
+			ofType="com.inf.mentoring.domain.KindsVO"
+			select="getAllKindsListBySeq" />
+	</resultMap>
+
+	<resultMap id="menteeMap"
+		type="com.inf.mentoring.domain.MenteeVO">
+		<id property="mentee_seq" column="mentee_seq"></id>
+		<result property="member_id" column="member_id"></result>
+		<result property="member_phoneNO" column="member_phoneNO"></result>
+		<result property="member_email" column="member_email"></result>
+		<result property="mentoring_seq" column="mentoring_seq"></result>
+		<result property="mentee_regdt" column="mentee_regdt"></result>
+		<result property="mentee_comment" column="mentee_comment"></result>
+		<result property="enabled" column="enabled"></result>
+		<result property="pay_enabled" column="pay_enabled"></result>
+		<collection property="member" column="member_id"
+			javaType="com.inf.member.domain.MemberVO"
+			ofType="com.inf.member.domain.MemberVO" select="getMenteeListById" />
+		<collection property="mentoring" column="mentoring_seq"
+			javaType="com.inf.mentoring.domain.MentoringVO"
+			ofType="com.inf.mentoring.domain.MentoringVO"
+			select="getMentoringListById" />
+	</resultMap>
+
+
+	<!-- MemberVO collection을 위한 select -->
+	<select id="getMentoListById"
+		resultType="com.inf.member.domain.MemberVO">
+		select * from member where member_id in (select member_id
+		from mentoring
+		where member_id = #{member_id}) and member_role = '멘토'
+	</select>
+	<!-- KindsVO collection을 위한 select -->
+	<select id="getKindsListById"
+		resultType="com.inf.mentoring.domain.KindsVO">
+		select * from kinds where kinds_seq in (select kinds_seq
+		from mentoring where kinds_seq = #{kinds_seq})
+	</select>
+	<!-- MentoringVO collection을 위한 select -->
+	<select id="getCourseListById"
+		resultType="com.inf.course.domain.CourseVO">
+		select * from course where course_seq in (select course_seq
+		from mentoring where course_seq = #{course_seq})
+	</select>
+	<select id="getAllKindsListBySeq"
+		resultType="com.inf.mentoring.domain.KindsVO">
+		select * from kinds
+	</select>
+
+	<!-- MentoringVO collection을 위한 select -->
+	<select id="getMentoringListById"
+		resultType="com.inf.mentoring.domain.MentoringVO">
+		select * from mentoring where mentoring_seq in (select
+		mentoring_seq
+		from myMentee where mentoring_seq = #{mentoring_seq})
+	</select>
+	<!-- MemberVO collection을 위한 select -->
+	<select id="getMenteeListById"
+		resultType="com.inf.member.domain.MemberVO">
+		select * from member where member_id in (select member_id
+		from myMentee
+		where member_id = #{member_id}) and member_role = '멘티'
+	</select>
+
+
+	<!-- 페이징 selelct -->
+	<select id="selectPageList" resultMap="mentoringMap"
+		parameterType="java.util.Map">
+    <![CDATA[
+	select a.* from 
+(select rownum rn, b.* from
+(select * from  mentoring where mentoring_status = 'Y' 
+ ]]>
+		<if test="keyword != null">
+			and mentoring_title like '%'||#{keyword}||'%'
+		</if>
+ <![CDATA[
+order by mentoring_seq desc) b) a
+where rn between #{begin} and #{end} 
+
+    ]]>
+	</select>
+
+	<!-- 페이징 전체 페이지 수를 위한 전체 count -->
+	<select id="getTotalCount" resultType="Integer">
+		SELECT count(*) FROM
+		mentoring where mentoring_status = 'Y'
+		<if test="keyword != null">
+            and mentoring_title like '%'||#{keyword}||'%'
+        </if>
+	</select>
+
+	<!-- 멘토링 신청 -->
+	<insert id="insertNewMyMentee"
+		parameterType="com.inf.mentoring.domain.MenteeVO">
+		<selectKey keyProperty="mentee_seq" resultType="int" order="BEFORE">
+        SELECT seq_myMentee.nextval from dual
+    </selectKey>
+		insert into myMentee values (#{mentee_seq},
+		#{member_id},
+		#{member_phoneNO},#{member_email},#{mentoring_seq},
+		to_date(#{mentee_regdt},'yyyy/mm/dd
+		hh24:mi'),#{mentee_comment},'승인대기','결제대기')
+
+	</insert>
+
+	<!-- 멘토링 신청(무료) -->
+	<insert id="insertNewMyMenteeForFree"
+		parameterType="com.inf.mentoring.domain.MenteeVO">
+		<selectKey keyProperty="mentee_seq" resultType="int" order="BEFORE">
+        SELECT seq_myMentee.nextval from dual
+    </selectKey>
+		insert into myMentee values (#{mentee_seq},
+		#{member_id},
+		#{member_phoneNO},#{member_email},#{mentoring_seq},
+		to_date(#{mentee_regdt},'yyyy/mm/dd
+		hh24:mi'),#{mentee_comment},'승인대기','결제완료')
+	
+
+	</insert>
+	<!-- 아이디에 해당하는 myMentee전체 -->
+	<select id="selectOnById" resultMap="menteeMap">
+		select * from myMentee where
+		mentoring_seq = #{mentoring_seq}
+	</select>
+	<!-- 멘티의 멘토링 중복 확인 -->
+	<select id="selectDuplicatedMyMenteeByMenteeVO"
+		resultType="integer">
+		select count(*) from myMentee where
+		mentoring_seq = #{mentoring_seq} and member_id = #{member_id}
+	</select>
+
+
+	<!-- <select id=""> select MEMBER_ID, MENTEE_COMMENT, TO_char(MENTEE_REGDT,'yyyy/mm/dd 
+		hh24:mi') as MENTEE_REGDT from mentee_regist; </select> -->
+
+	<!-- 등록된 멘토링 -->
+	<select id="selectApplyMentoById" resultMap="mentoringMap">
+		select * from
+		mentoring where member_id = #{member_id} and mentoring_status = 'Y'
+		order by mentoring_regdt desc
+	</select>
+
+	<!--멘티가 신청한 멘토링 보기 -->
+	<select id="selectAppliedMenteeById" resultMap="menteeMap">
+		select * from
+		myMentee where mentoring_seq in (select mentoring_seq from mentoring
+		where member_id = #{member_id} and mentoring_status = 'Y') and enabled
+		= '승인완료' and pay_enabled =
+		'결제완료' order by mentee_regdt desc
+	</select>
+	<!-- 미승인 멘티 -->
+	<select id="selectNoCheckMenteeById" resultMap="menteeMap">
+		select * from
+		myMentee where mentoring_seq in (select mentoring_seq from mentoring
+		where member_id = #{member_id}) and enabled = '승인대기' and pay_enabled =
+		'결제완료' order by mentee_regdt desc
+	</select>
+
+	<!--등록되어있는 해당 아이디 멘토링 전체 -->
+	<select id="selectApplyMentoListById" resultMap="mentoringMap">
+		select * from
+		mentoring where member_id = #{member_id} and mentoring_status = 'Y'
+		order by mentoring_regDT desc
+	</select>
+
+	<!-- 멘토링 등록 -->
+	<insert id="insertNewMyMentoring"
+		parameterType="com.inf.mentoring.domain.MentoringVO">
+		<selectKey keyProperty="mentoring_seq" resultType="Integer"
+			order="BEFORE">
+			select seq_mentoring.nextval from dual
+		</selectKey>
+		insert into
+		mentoring(mentoring_seq,member_id,course_seq,kinds_seq,mentoring_title,mentoring_content,mentoring_price,mentoring_regdt,mentoring_status,mentoring_materials,mentoring_comment)
+		values(#{mentoring_seq},#{member_id},
+		<choose>
+			<when test="course_seq == 0">
+				null
+			</when>
+			<otherwise>
+				#{course_seq}
+			</otherwise>
+		</choose>
+		,#{kinds_seq},#{mentoring_title},#{mentoring_content},#{mentoring_price},sysdate,'Y',
+		#{mentoring_materials},#{mentoring_comment})
+	</insert>
+	<!-- 멘토링 삭제 -->
+	<update id="cancelMentoringBySeq">
+		update mentoring set mentoring_status = 'N' where
+		mentoring_seq = #{mentoring_seq}
+
+	</update>
+	<!-- 멘토링 삭제시 필요 -->
+	<select id="selectMentoringBySeq" resultMap="mentoringMap">
+		select * from
+		mentoring where mentoring_seq = #{mentoring_seq}
+	</select>
+	<!-- 멘토링 삭제시 필요 -->
+	<select id="selectMenteeBySeq" resultMap="menteeMap">
+		select * from
+		myMentee where mentee_seq = #{mentee_seq}
+	</select>
+
+	<!-- 해당 멘티에 대한 멘토링 정보 -->
+	<select id="selectMenteeMentoringById" resultMap="menteeMap">
+		select * from mymentee where
+		member_id = #{member_id} and enabled = '승인완료' 
+		order by mentee_regDT desc
+	</select>
+	<!-- 해당 멘티에 대한 들었던 멘토링 정보 -->
+	<select id="selectOldMentoringById" resultMap="mentoringMap">
+		select * from
+		mentoring where mentoring_seq in (select mentoring_seq from
+		myMentee
+		where member_id = #{member_id}) and mentoring_status = 'N' order by
+		mentoring_regDT desc
+	</select>
+	<!-- 승인 대기 중인 멘토링 -->
+	<select id="selectNoCheckMentoringById" resultMap="menteeMap">
+	select * from myMentee where member_id = #{member_id} and enabled = '승인대기' and pay_enabled = '결제완료' order by mentee_regdt desc
+		
+	</select>
+	<!-- 결제 대기중인 멘토링 -->
+	<select id="selectNoPayMentoringById" resultMap="menteeMap">
+		select * from myMentee where member_id = #{member_id} and enabled = '승인대기' and pay_enabled = '결제대기' order by mentee_regdt desc
+
+	</select>
+
+	<!-- 결제페이지 멘토링 -->
+	<!-- <select id="selectPayMentoringBySeq" resultMap="mentoringMap">
+		select * from
+		mentoring where mentoring_seq in (select mentoring_seq from
+		myMentee
+		where mentoring_seq = #{mentoring_seq})
+	</select> -->
+	<select id="selectPayMyMenteeBySeq" resultMap="menteeMap">
+		select * from
+		myMentee where mentee_seq = #{mentee_seq}
+
+	</select>
+	<!-- 멘티 - 멘토링 삭제 -->
+	<delete id="deleteMentoringByseq">
+		delete from myMentee where mentee_seq = #{mentee_seq} 
+	</delete>
+	<!--멘토 - 승락 -->
+	<update id="changeMenteeEnabledBySeq">
+		update myMentee set enabled = '승인완료' where mentee_seq
+		= #{mentee_seq}
+	</update>
+
+	<!-- 멘토링 페이지 nav -->
+	<select id="selectNavListKinds"
+		resultType="com.inf.mentoring.domain.KindsVO">
+		select * from kinds order by kinds_seq asc
+	</select>
+
+
+
+</mapper>
